@@ -22,6 +22,7 @@ from werkzeug.utils import import_string
 from werkzeug.contrib.profiler import ProfilerMiddleware
 from pyinstrument import Profiler
 from flask import g, make_response
+from flask_profiler import Profiler
 
 from . import config
 
@@ -109,6 +110,8 @@ class InvenioApp(object):
             ]
         }
 
+        profiler = Profiler()
+        profiler.init_app(app)
         # Register self
         app.extensions['invenio-app'] = self
 
