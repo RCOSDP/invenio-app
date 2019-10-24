@@ -19,6 +19,10 @@ from flask_limiter.util import get_ipaddr
 from flask_talisman import Talisman
 from werkzeug.utils import import_string
 
+from werkzeug.contrib.profiler import ProfilerMiddleware
+from pyinstrument import Profiler
+from flask import g, make_response
+
 from . import config
 
 
@@ -70,6 +74,40 @@ class InvenioApp(object):
             @app.before_request
             def before_request():
                 request.host
+
+        app.config['PROFILE'] = True
+        app.wsgi_app = ProfilerMiddleware(app.wsgi_app, sort_by=['tottime'], restrictions=[20])
+
+        @app.before_request
+        def before_request():
+            if "profile" in request.args:
+                g.profiler = Profiler()
+                g.profiler.start()
+
+        @app.after_request
+        def after_request(response):
+            if not hasattr(g, "profiler"):
+                return response
+            g.profiler.stop()
+            output_html = g.profiler.output_html()
+            return make_response(output_html)
+
+        # You need to declare necessary configuration to initialize
+        # flask-profiler as follows:
+        app.config["flask_profiler"] = {
+            "enabled": app.config["DEBUG"],
+            "storage": {
+                "engine": "postgresql+psycopg2://invenio:dbpass123@postgresql:5432/flask_profiler"
+            },
+            "basicAuth":{
+                "enabled": True,
+                "username": "admin",
+                "password": "admin"
+            },
+            "ignore": [
+                "^/static/.*"
+            ]
+        }
 
         # Register self
         app.extensions['invenio-app'] = self
